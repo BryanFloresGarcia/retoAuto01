@@ -1,0 +1,364 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.casino.qa</groupId>
+    <artifactId>casino-deposit-qr-automation</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+
+    <name>casino-deposit-qr-automation</name>
+    <description>Framework de automatizacion POM (Page Object Model) para el flujo de Deposito
+        pasarela "Pago con QR" del casino online. Java + Selenium WebDriver 4 + Spring Boot + Cucumber + JUnit 5.
+    </description>
+
+    <properties>
+        <java.version>21</java.version>
+        <maven.compiler.release>21</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+        <spring.boot.version>3.2.5</spring.boot.version>
+        <selenium.version>4.22.0</selenium.version>
+        <!--
+            selenium-java es un agregador: sin un BOM, Maven resuelve sus modulos por
+            "nearest wins" y acaba mezclando selenium-java 4.22 con selenium-api/chrome-driver
+            4.14. Esa combinacion no esta soportada y provoca avisos de CDP desalineado.
+            Importar el BOM fija TODOS los modulos de Selenium en la misma version.
+        -->
+        <selenium.bom.version>4.22.0</selenium.bom.version>
+        <cucumber.version>7.19.0</cucumber.version>
+        <junit.jupiter.version>5.10.2</junit.jupiter.version>
+        <junit.platform.version>1.10.2</junit.platform.version>
+        <assertj.version>3.25.3</assertj.version>
+        <logback.version>1.4.14</logback.version>
+        <zxing.version>3.5.3</zxing.version>
+        <maven.surefire.version>3.2.5</maven.surefire.version>
+        <maven.compiler.plugin.version>3.13.0</maven.compiler.plugin.version>
+
+        <!-- Defaults de ejecucion (overridables por perfil o -D en linea de comandos) -->
+        <cucumber.filter.tags>@smoke</cucumber.filter.tags>
+        <cucumber.parallel>false</cucumber.parallel>
+        <!-- Rutas de evidencia y reportes -->
+        <cucumber.reportHtml>target/cucumber-report.html</cucumber.reportHtml>
+        <cucumber.reportJson>target/cucumber-report/cucumber.json</cucumber.reportJson>
+        <!-- Runner que ejecuta Surefire. El perfil "rerun" lo cambia por ReRunTestRunner -->
+        <surefire.runner>TestRunner</surefire.runner>
+        <cucumber.rerunFile>target/rerun.txt</cucumber.rerunFile>
+        <cucumber.rerun></cucumber.rerun>
+        <qa.baseUrl>https://www.casinoatlanticcity.com/</qa.baseUrl>
+        <qa.browser.headless>false</qa.browser.headless>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring.boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!--
+                selenium-java es un agregador y Maven lo resuelve con "nearest wins", por lo que
+                acababa mezclando selenium-java 4.22 con modulos 4.14.1 (combinacion no soportada,
+                con avisos de CDP desalineado). Fijar aqui cada modulo usado en ${selenium.version}
+                garantiza un arbol homogeneo. selenium-bom no sirve en este proyecto porque el
+                agregador declara DevTools v85, artefacto que no existe para 4.22.
+            -->
+            <dependency>
+                <groupId>org.seleniumhq.selenium</groupId>
+                <artifactId>selenium-api</artifactId>
+                <version>${selenium.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.seleniumhq.selenium</groupId>
+                <artifactId>selenium-support</artifactId>
+                <version>${selenium.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.seleniumhq.selenium</groupId>
+                <artifactId>selenium-remote-driver</artifactId>
+                <version>${selenium.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.seleniumhq.selenium</groupId>
+                <artifactId>selenium-chromium-driver</artifactId>
+                <version>${selenium.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.seleniumhq.selenium</groupId>
+                <artifactId>selenium-chrome-driver</artifactId>
+                <version>${selenium.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.seleniumhq.selenium</groupId>
+                <artifactId>selenium-edge-driver</artifactId>
+                <version>${selenium.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.seleniumhq.selenium</groupId>
+                <artifactId>selenium-firefox-driver</artifactId>
+                <version>${selenium.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.seleniumhq.selenium</groupId>
+                <artifactId>selenium-manager</artifactId>
+                <version>${selenium.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.seleniumhq.selenium</groupId>
+                <artifactId>selenium-json</artifactId>
+                <version>${selenium.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.seleniumhq.selenium</groupId>
+                <artifactId>selenium-http</artifactId>
+                <version>${selenium.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.seleniumhq.selenium</groupId>
+                <artifactId>selenium-os</artifactId>
+                <version>${selenium.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- ===================== SPRING BOOT (contenedor de IoC + configuracion) ===================== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!-- ===================== SELENIUM ===================== -->
+        <!-- selenium-java incluye Selenium Manager (resolucion automatica de chromedriver
+             desde Selenium 4.6); si el runner tiene red restringida se puede fijar la ruta
+             con -Dwebdriver.chrome.driver=C:\ruta\chromedriver.exe -->
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-java</artifactId>
+            <version>${selenium.version}</version>
+        </dependency>
+
+        <!-- ===================== CUCUMBER + JUNIT 5 ===================== -->
+        <dependency>
+            <groupId>io.cucumber</groupId>
+            <artifactId>cucumber-java</artifactId>
+            <version>${cucumber.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.cucumber</groupId>
+            <artifactId>cucumber-spring</artifactId>
+            <version>${cucumber.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.cucumber</groupId>
+            <artifactId>cucumber-junit-platform-engine</artifactId>
+            <version>${cucumber.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.jupiter.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-suite</artifactId>
+            <version>${junit.platform.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- ===================== ASERCIONES ===================== -->
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <version>${assertj.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!--
+            ZXing decodifica el QR que el portal entrega como PNG en base64 dentro de
+            #depositResponseImgQR. El payload no existe en el DOM, asi que la unica forma de
+            validar que el QR es real y no un placeholder es decodificar la imagen.
+            "core" contiene el lector multiformato; "javase" aporta la fuente de luminancia.
+        -->
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>core</artifactId>
+            <version>${zxing.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>javase</artifactId>
+            <version>${zxing.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>casino-deposit-qr-automation</finalName>
+
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>${maven.compiler.plugin.version}</version>
+                <configuration>
+                    <release>${java.version}</release>
+                    <parameters>true</parameters>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${maven.surefire.version}</version>
+                <configuration>
+                    <!-- Suite JUnit Platform: el discovery de Cucumber corre aqui -->
+                    <includes>
+                        <include>**/${surefire.runner}.java</include>
+                    </includes>
+                    <!--
+                        Ejecucion por defecto: SOLO @smoke.
+                        Override:  mvn test -Dcucumber.filter.tags="@critical and not @wip"
+                                  mvn test -Dcucumber.execution.parallel.enabled=true
+                                  mvn test -P rerun
+
+                        Los plugins se declaran aqui y no en cucumber.properties porque el motor
+                        de JUnit Platform solo lee cucumber.plugin como system property
+                        (verificado: la clave del .properties se ignora). Ojo: el plugin html NO
+                        admite el sufijo ":<lineas>" en Cucumber 7.19 sobre Windows, Provocaba
+                        "Couldn't get the canonical file of 'target\\reporte.html:10'".
+                    -->
+                    <systemPropertyVariables>
+                        <cucumber.plugin>html:${cucumber.reportHtml},json:${cucumber.reportJson},rerun:${cucumber.rerunFile}</cucumber.plugin>
+                        <cucumber.filter.tags>${cucumber.filter.tags}</cucumber.filter.tags>
+                        <cucumber.execution.parallel.enabled>${cucumber.parallel}</cucumber.execution.parallel.enabled>
+                        <cucumber.execution.parallel.config.strategy>dynamic</cucumber.execution.parallel.config.strategy>
+                        <cucumber.execution.parallel.config.dynamic.maximum-pool-size>4</cucumber.execution.parallel.config.dynamic.maximum-pool-size>
+                        <cucumber.publish.quiet>true</cucumber.publish.quiet>
+                        <!-- Reejecucion de fallos: se activa con el perfil "rerun" -->
+                        <cucumber.rerun>${cucumber.rerunFile}</cucumber.rerun>
+                        <!-- Overrides de infraestructura por linea de comandos, p.ej. -Dqa.browser.headless=true -->
+                        <qa.baseUrl>${qa.baseUrl}</qa.baseUrl>
+                        <qa.browser.headless>${qa.browser.headless}</qa.browser.headless>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>${maven.surefire.version}</version>
+                <configuration>
+                    <includes>
+                        <include>**/LoadTestRunner.java</include>
+                    </includes>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>performance</id>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!--
+            Proyecto 100% de pruebas: todo el codigo vive en src/test/java, asi que NO se
+            empaqueta el plugin de Spring Boot. Spring Boot se usa solo como contenedor de IoC
+            y gestor de configuracion, mediante el BOM de spring-boot-dependencies.
+        -->
+    </plugins>
+</build>
+
+    <profiles>
+        <profile>
+            <id>default-run</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <properties>
+                <cucumber.filter.tags>@smoke</cucumber.filter.tags>
+                <cucumber.parallel>false</cucumber.parallel>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>regression</id>
+            <properties>
+                <cucumber.filter.tags>@regression</cucumber.filter.tags>
+                <cucumber.parallel>true</cucumber.parallel>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>critical</id>
+            <properties>
+                <cucumber.filter.tags>@critical</cucumber.filter.tags>
+                <cucumber.parallel>false</cucumber.parallel>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>all</id>
+            <properties>
+                <cucumber.filter.tags>not @wip</cucumber.filter.tags>
+                <cucumber.parallel>false</cucumber.parallel>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>headless</id>
+            <properties>
+                <qa.browser.headless>true</qa.browser.headless>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>performance</id>
+            <properties>
+                <cucumber.filter.tags>@performance</cucumber.filter.tags>
+                <cucumber.parallel>true</cucumber.parallel>
+            </properties>
+        </profile>
+
+        <!--
+            Reejecucion de los escenarios fallidos.
+            Uso:  mvn test            (una pasada, deja target/rerun.txt)
+                  mvn test -P rerun   (solo los que fallaron)
+
+            OJO: el motor de JUnit Platform ignora cucumber.rerun como system property, por eso
+            el perfil cambia el runner a ReRunTestRunner, que declara el archivo del rerun con
+            @ConfigurationParameter. El perfil tambien limpia el filtro de tags: en un rerun
+            interesan todos los fallos registrados, no solo los de una familia.
+        -->
+        <profile>
+            <id>rerun</id>
+            <properties>
+                <surefire.runner>ReRunTestRunner</surefire.runner>
+                <cucumber.filter.tags></cucumber.filter.tags>
+                <cucumber.parallel>false</cucumber.parallel>
+            </properties>
+        </profile>
+    </profiles>
+</project>

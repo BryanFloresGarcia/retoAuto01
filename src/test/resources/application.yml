@@ -1,0 +1,67 @@
+server:
+  port: -1
+
+spring:
+  application:
+    name: casino-deposit-qr-automation
+  main:
+    web-application-type: none
+    banner-mode: off
+
+logging:
+  level:
+    root: INFO
+    com.casino.qa: DEBUG
+    org.openqa.selenium: WARN
+    io.cucumber: INFO
+
+qa:
+  base-url: ${CASINO_BASE_URL:https://www.casinoatlanticcity.com/}
+  base-url-secure: ${CASINO_BASE_URL:https://www.casinoatlanticcity.com/}
+
+  browser:
+    type: chrome
+    headless: ${QA_BROWSER_HEADLESS:false}
+    window-size: 1920x1080
+    page-load-timeout-sec: 60
+
+  timeouts:
+    # Politica transversal de esperas explicitas. El implicit wait se mantiene en 1s solo como
+    # red de seguridad minima; la sincronizacion real se hace con esperas explicitas
+    # (recomendacion oficial de Selenium 4: mezclar ambas produce condiciones de carrera).
+    implicit: 1s
+    explicit: 20s
+    short-wait: 5s
+    poll: 500ms
+
+  user:
+    username: ${QA_USER}
+    password: ${QA_PASS}
+
+  qr:
+    # Presupuesto de ESPERA del QR, no el umbral de la asercion: el umbral real lo fija el
+    # escenario ("... es menor a N segundos"), aqui solo hace falta margen para que la medicion
+    # sea fiable. Medido en este portal: ~4.5 s de forma consistente, muy por encima de los 3 s
+    # del criterio original, asi que un presupuesto de 3+2 s quedaba pegado al limite y hacia
+    # intermitentes los escenarios que esperan el QR.
+    max-generation-time: 15s
+    validity: 15m
+    poll-interval: 1s
+
+  evidence:
+    # OJO: al vivir bajo target/, mvn clean borra capturas y videos. Copialos antes de limpiar.
+    directory: target/evidence
+    screenshot-on-failure: true
+    screenshot-per-step: false
+    # Grabacion de video por polling del CDP (solo Chrome/Edge). Requiere ffmpeg en el PATH:
+    #   winget install Gyan.FFmpeg
+    # Se desactiva automaticamente si cucumber.execution.parallel.enabled=true,
+    # porque WebDriver no es thread-safe.
+    video-enabled: true
+    # Si ffmpeg falta y esto es true, el escenario falla (decision de proyecto).
+    # Ponlo en false para degradar a solo capturas PNG sin ffmpeg.
+    video-required: true
+    video-fps: 10
+    video-frame-interval: 300ms
+    ffmpeg: ffmpeg
+    video-format: mp4
